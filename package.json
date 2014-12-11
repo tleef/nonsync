@@ -1,0 +1,27 @@
+{
+  "name": "nonsync",
+  "version": "0.0.1",
+  "description": "An async-like library which collects all errors and returns them at the end",
+  "main": "./lib/nonsync",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha -u tdd"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tleef/nonsync.git"
+  },
+  "keywords": [
+    "nonsync",
+    "async",
+    "errors"
+  ],
+  "author": "Tome Lee",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tleef/nonsync/issues"
+  },
+  "homepage": "https://github.com/tleef/nonsync"
+}
