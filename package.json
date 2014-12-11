@@ -1,6 +1,6 @@
 {
   "name": "nonsync",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "An async-like library which collects all errors and returns them at the end",
   "main": "./lib/nonsync",
   "directories": {
