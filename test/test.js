@@ -9,11 +9,19 @@ function eachIterator(args, x, callback) {
   }, x*25);
 }
 
+function mapIterator(call_order, x, callback) {
+  setTimeout(function(){
+    call_order.push(x);
+    callback(null, x*2);
+  }, x*25);
+}
+
 function eachNoCallbackIterator(done, x, callback) {
   assert.equal(x, 1);
   callback();
   done();
 }
+
 
 suite('each', function(){
 
@@ -339,6 +347,277 @@ suite('eachLimit', function(){
   test('forEachLimit alias', function(done) {
     assert.strictEqual(nonsync.eachLimit, nonsync.forEachLimit);
     done();
+  });
+
+});
+
+
+suite('map', function() {
+
+  test('normal', function(done) {
+    var call_order = [];
+    nonsync.map([1,3,2], mapIterator.bind(this, call_order), function(errors, results){
+      assert.ok(Array.isArray(errors));
+      assert.ok(!errors.length);
+      assert.deepEqual(call_order, [1,2,3]);
+      assert.deepEqual(results, [2,6,4]);
+      done();
+    });
+  });
+
+  test('original untouched', function(done) {
+    var a = [1,2,3];
+    nonsync.map(a, function(x, callback){
+      callback(null, x*2);
+    }, function(errors, results){
+      assert.deepEqual(results, [2,4,6]);
+      assert.deepEqual(a, [1,2,3]);
+      done();
+    });
+  });
+
+  test('without main callback', function(done) {
+    var a = [1,2,3];
+    var r = [];
+    nonsync.map(a, function(x, callback){
+      r.push(x);
+      callback(null);
+      if (r.length >= a.length) {
+        assert.deepEqual(r, a);
+        done();
+      }
+    });
+  });
+
+  test('error all', function(done) {
+    var count = 0;
+    nonsync.map([1,2,3], function(x, callback){
+      setTimeout(function() { callback('error') }, 10);
+    }, function(errors, results){
+      assert.deepEqual(errors, ['error','error','error']);
+      assert.equal(count, 3);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+  test('error odds', function(done) {
+    var count = 0;
+    var expected = [];
+    expected[0] = 'error';
+    expected[2] = 'error';
+    nonsync.map([1,2,3], function(x, callback){
+      setTimeout(function() { x % 2 === 1 ? callback('error') : callback(); }, 10);
+    }, function(errors, results){
+      assert.deepEqual(errors, expected);
+      assert.equal(count, 2);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+  test('error evens', function(done) {
+    var count = 0;
+    var expected = [];
+    expected[1] = 'error';
+    nonsync.map([1,2,3], function(x, callback){
+      setTimeout(function() { x % 2 === 0 ? callback('error') : callback(); }, 10);
+    }, function(errors, results){
+      assert.deepEqual(errors, expected);
+      assert.equal(count, 1);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+});
+
+
+suite('mapSeries', function() {
+
+  test('normal', function(done) {
+    var call_order = [];
+    nonsync.mapSeries([1,3,2], mapIterator.bind(this, call_order), function(errors, results){
+      assert.ok(Array.isArray(errors));
+      assert.ok(!errors.length);
+      assert.deepEqual(call_order, [1,3,2]);
+      assert.deepEqual(results, [2,6,4]);
+      done();
+    });
+  });
+
+  test('error all', function(done) {
+    var count = 0;
+    nonsync.mapSeries([1,2,3], function(x, callback){
+      setTimeout(function() { callback('error') }, 10);
+    }, function(errors, results){
+      assert.deepEqual(errors, ['error','error','error']);
+      assert.equal(count, 3);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+  test('error odds', function(done) {
+    var count = 0;
+    var expected = [];
+    expected[0] = 'error';
+    expected[2] = 'error';
+    nonsync.mapSeries([1,2,3], function(x, callback){
+      setTimeout(function() { x % 2 === 1 ? callback('error') : callback(); }, 10);
+    }, function(errors, results){
+      assert.deepEqual(errors, expected);
+      assert.equal(count, 2);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+  test('error evens', function(done) {
+    var count = 0;
+    var expected = [];
+    expected[1] = 'error';
+    nonsync.mapSeries([1,2,3], function(x, callback){
+      setTimeout(function() { x % 2 === 0 ? callback('error') : callback(); }, 10);
+    }, function(errors, results){
+      assert.deepEqual(errors, expected);
+      assert.equal(count, 1);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+});
+
+
+suite('mapLimit', function() {
+
+  test('normal', function(done) {
+    var call_order = [];
+    nonsync.mapLimit([2,4,3], 2, mapIterator.bind(this, call_order), function(errors, results){
+      assert.ok(Array.isArray(errors));
+      assert.ok(!errors.length);
+      assert.deepEqual(call_order, [2,4,3]);
+      assert.deepEqual(results, [4,8,6]);
+      done();
+    });
+  });
+
+  test('empty array', function(done) {
+    nonsync.mapLimit([], 2, function(x, callback){
+      assert.ok(false, 'iterator should not be called');
+      callback();
+    }, function(){
+      assert.ok(true, 'should call callback');
+      done();
+    });
+  });
+
+  test('limit exceeds size', function(done) {
+    var call_order = [];
+    nonsync.mapLimit([0,1,2,3,4,5,6,7,8,9], 20, mapIterator.bind(this, call_order), function(err, results){
+      assert.deepEqual(call_order, [0,1,2,3,4,5,6,7,8,9]);
+      assert.deepEqual(results, [0,2,4,6,8,10,12,14,16,18]);
+      done();
+    });
+  });
+
+  test('limit equals size', function(done) {
+    var call_order = [];
+    nonsync.mapLimit([0,1,2,3,4,5,6,7,8,9], 10, mapIterator.bind(this, call_order), function(err, results){
+      assert.deepEqual(call_order, [0,1,2,3,4,5,6,7,8,9]);
+      assert.deepEqual(results, [0,2,4,6,8,10,12,14,16,18]);
+      done();
+    });
+  });
+
+  test('zero limit', function(done) {
+    nonsync.mapLimit([0,1,2,3,4,5], 0, function(x, callback){
+      test.ok(false, 'iterator should not be called');
+      callback();
+    }, function(err, results){
+      assert.deepEqual(results, []);
+      assert.ok(true, 'should call callback');
+      done();
+    });
+  });
+
+  test('error all', function(done) {
+    var count = 0;
+    var arr = [0,1,2,3,4,5,6,7,8,9];
+    var call_order = [];
+    nonsync.mapLimit(arr, 3, function(x, callback){
+      call_order.push(x);
+      setTimeout(function() { callback('error') }, 10);
+    }, function(errors){
+      assert.deepEqual(call_order, [0,1,2,3,4,5,6,7,8,9]);
+      assert.deepEqual(errors, arr.map(function() { return 'error' }));
+      assert.equal(count, 10);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+  test('error odds', function(done) {
+    var count = 0;
+    var arr = [0,1,2,3,4,5,6,7,8,9];
+    var expected = [];
+    expected[1] = 'error';
+    expected[3] = 'error';
+    expected[5] = 'error';
+    expected[7] = 'error';
+    expected[9] = 'error';
+    var call_order = [];
+    nonsync.mapLimit(arr, 3, function(x, callback){
+      call_order.push(x);
+      setTimeout(function() { x % 2 === 1 ? callback('error') : callback(); }, 10);
+    }, function(errors){
+      assert.deepEqual(call_order, [0,1,2,3,4,5,6,7,8,9]);
+      assert.deepEqual(errors, expected);
+      assert.equal(count, 5);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
+  });
+
+  test('error evens', function(done) {
+    var count = 0;
+    var arr = [0,1,2,3,4,5,6,7,8,9];
+    var expected = [];
+    expected[0] = 'error';
+    expected[2] = 'error';
+    expected[4] = 'error';
+    expected[6] = 'error';
+    expected[8] = 'error';
+    var call_order = [];
+    nonsync.mapLimit(arr, 3, function(x, callback){
+      call_order.push(x);
+      setTimeout(function() { x % 2 === 0 ? callback('error') : callback(); }, 10);
+    }, function(errors){
+      assert.deepEqual(call_order, [0,1,2,3,4,5,6,7,8,9]);
+      assert.deepEqual(errors, expected);
+      assert.equal(count, 5);
+      done();
+    }).on('err', function(err) {
+      assert.equal(err, 'error');
+      count++;
+    });
   });
 
 });
